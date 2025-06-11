@@ -1,10 +1,19 @@
 import streamlit as st
 import feedparser
-from newspaper import Article
+from newspaper import Article, Config
 from PIL import Image
 import requests
 from io import BytesIO
 import random
+import nltk
+
+# Ensure NLTK punkt is available
+nltk.download('punkt')
+
+# Streamlit page config
+st.set_page_config(page_title="🧠 Tech News Feed", layout="wide")
+st.title("🧠 Tech News Digest")
+st.caption("Live feed of top tech articles with varied layouts and summaries.")
 
 # Tech RSS feeds
 TECH_FEEDS = [
@@ -28,11 +37,11 @@ TECH_KEYWORDS = [
     "internet of things", "IoT", "AR", "VR", "tech", "developer", "app", "IT"
 ]
 
-MAX_ARTICLES = 20
+MAX_ARTICLES = 10
 
-st.set_page_config(page_title="🧠 Tech News Feed", layout="wide")
-st.title("🧠 Tech News Digest")
-st.caption("Live feed of top tech articles with varied layouts and summaries.")
+# User-Agent config for newspaper3k
+user_agent_config = Config()
+user_agent_config.browser_user_agent = 'Mozilla/5.0'
 
 @st.cache_data(ttl=600)
 def fetch_tech_articles():
@@ -50,11 +59,12 @@ def fetch_tech_articles():
             seen_urls.add(url)
 
             try:
-                art = Article(url)
+                art = Article(url, config=user_agent_config)
                 art.download()
                 art.parse()
                 art.nlp()
-            except:
+            except Exception as e:
+                st.warning(f"❌ Skipped article: {e}")
                 continue
 
             content = (art.title or "") + " " + art.summary
@@ -77,9 +87,10 @@ def fetch_tech_articles():
 
 def display_article(article, layout_style):
     try:
-        img_data = requests.get(article["image"], timeout=5).content if article["image"] else None
+        img_data = requests.get(article["image"], timeout=3).content if article["image"] else None
         image = Image.open(BytesIO(img_data)).convert("RGB") if img_data else None
-    except:
+    except Exception as e:
+        st.warning(f"Image error: {e}")
         image = None
 
     if layout_style == "left-image":
@@ -121,12 +132,13 @@ def display_article(article, layout_style):
         st.markdown("---")
 
 # --- Main Execution ---
-articles = fetch_tech_articles()
+with st.spinner("🔄 Fetching latest tech news..."):
+    articles = fetch_tech_articles()
 
 if not articles:
     st.warning("😕 No tech articles available right now. Try again later.")
 else:
     layout_options = ["left-image", "right-image", "centered", "tile"]
-    for i, article in enumerate(articles):
+    for article in articles:
         layout = random.choice(layout_options)
         display_article(article, layout)
