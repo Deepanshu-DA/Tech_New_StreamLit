@@ -7,15 +7,21 @@ from io import BytesIO
 import random
 import nltk
 
-# Ensure NLTK punkt is available
-nltk.download('punkt')
+# --- Ensure NLTK punkt tokenizer is available ---
+try:
+    nltk.data.find('tokenizers/punkt_tab')
+except LookupError:
+    try:
+        nltk.download('punkt_tab')
+    except:
+        nltk.download('punkt')
 
-# Streamlit page config
+# --- Streamlit UI Setup ---
 st.set_page_config(page_title="🧠 Tech News Feed", layout="wide")
 st.title("🧠 Tech News Digest")
 st.caption("Live feed of top tech articles with varied layouts and summaries.")
 
-# Tech RSS feeds
+# --- Tech Feeds and Keywords ---
 TECH_FEEDS = [
     "https://techcrunch.com/feed/",
     "https://www.wired.com/feed/rss",
@@ -39,10 +45,11 @@ TECH_KEYWORDS = [
 
 MAX_ARTICLES = 10
 
-# User-Agent config for newspaper3k
+# Custom user-agent for newspaper3k
 user_agent_config = Config()
 user_agent_config.browser_user_agent = 'Mozilla/5.0'
 
+# --- Caching and Fetching ---
 @st.cache_data(ttl=600)
 def fetch_tech_articles():
     articles = []
@@ -64,7 +71,7 @@ def fetch_tech_articles():
                 art.parse()
                 art.nlp()
             except Exception as e:
-                st.warning(f"❌ Skipped article: {e}")
+                st.warning(f"⚠️ Skipped article: {url} ({e})")
                 continue
 
             content = (art.title or "") + " " + art.summary
@@ -85,12 +92,12 @@ def fetch_tech_articles():
 
     return articles[:MAX_ARTICLES]
 
+# --- Article Display ---
 def display_article(article, layout_style):
     try:
         img_data = requests.get(article["image"], timeout=3).content if article["image"] else None
         image = Image.open(BytesIO(img_data)).convert("RGB") if img_data else None
-    except Exception as e:
-        st.warning(f"Image error: {e}")
+    except Exception:
         image = None
 
     if layout_style == "left-image":
